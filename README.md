@@ -55,9 +55,9 @@ If the credentials match and everything is valid, the user is successfully authe
 
 * [Node.js](https://nodejs.org/) (v14 or higher recommended)
 * [npm](https://www.npmjs.com/) (comes with Node.js)
-* [PostgreSQL](https://www.postgresql.org/download/) (v16.10 or higher reconnended)
-* [JWT](https://jwt.io) (v9.0.2 or higher reconnended)
-* [Dotenv](https://dotenv.org) (v17.2.3 or higher reconnended)
+* [PostgreSQL](https://www.postgresql.org/download/) (v16.10 or higher recommended)
+* [JWT](https://jwt.io) (v9.0.2 or higher recommended)
+* [Dotenv](https://dotenv.org) (v17.2.3 or higher recommended)
 
 ### Running The Setup ⚙️
 
