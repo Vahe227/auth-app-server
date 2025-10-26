@@ -11,6 +11,8 @@ Additionally, once a user logs in, the server remembers the user for 30 days, me
 
 The project also utilizes the dotenv library to manage environment variables, ensuring better stability and security across the application.
 
+To make the server more efficient and responsive, I used the Cluster module, which allows handling incoming requests across all CPU cores instead of a single one. As a result, the server can process multiple requests simultaneously, improving its performance and scalability.
+
 --- 
 
 ## 🛠️ Key Technologies
@@ -20,6 +22,8 @@ The project also utilizes the dotenv library to manage environment variables, en
 * **JWT** - It is a data exchange format primarily used for user authentication and authorization. It provides a text-based token that is divided into three parts: Header, Payload, and Signature.
 * **Dotenv** - It allows you to manage environment variables when working with Node.js.
 Environment variables are typically stored in .env files, keeping sensitive configuration data out of the codebase. For example, database credentials such as port, host, password, and other sensitive information can be securely stored using this method.
+* **OS** - This library allows you to interact with the operating system through code. It provides functionality to retrieve system information, delete certain data, and perform various other operations.
+* **Cluster** - The Cluster module in Node.js enables the use of all CPU cores by creating multiple processes (workers) that can handle the same server concurrently.
 
 --- 
 
