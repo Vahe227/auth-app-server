@@ -2,6 +2,8 @@ import express from 'express';
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
 import jwt from 'jsonwebtoken';
+import os from 'os';
+import cluster from 'cluster';
 import insertData from './DataBase/Inserts/insertReagisterValues.js';
 import checkLoginData from './DataBase/Actions/checkLoginData.js';
 import insertToken from './DataBase/Inserts/insertToken.js';
@@ -14,6 +16,7 @@ const port = process.env.PORT;
 const ip = process.env.IP;
 const server = express();
 const secret = process.env.JWT_SECRET;
+const numOfCpuCores = os.cpus().length;
 
 server.use(express.json());
 
@@ -25,76 +28,89 @@ const pool = new Pool({
     port: process.env.DB_PORT
 });
 
-pool.on('error', (err, client) => {
-    console.error('DataBase Have An Error: ', err);
-});
+if(cluster.isPrimary) {
+    console.info(`Primary ${process.pid} is starting work`);
 
-server.get('/', (req,res) => {
-    res.status(200).send('<h1>Server Code is working!</h1>');
-});
-
-server.post('/isLogined', async (req,res) => {
-    try {
-        const { result } = req.body;
-        const resultOfTokenTime = await checkTokenTime(jwt, secret, result, pool);
-        if(resultOfTokenTime === 'notExictedTime') {
-            const resultOfFunc = await isUserLogined(pool, result);
-            if(resultOfFunc === 'DontExists') {
-                return res.json({ state: 'UserDidntExists' });
-            } else if (resultOfFunc === 'Exists') {
-                return res.json({ state: 'UserAlredyExists' });
-            };    
-        } else if(resultOfTokenTime === 'ExictedTime') {
-            return res.json({ state: 'UserDidntExists' });
-        } else if(resultOfTokenTime === 'InvalidToken') {
-            return res.json({ state: 'TokenIsInvalid'});
-        };
-    } catch (error) {
-        console.error('/isLogined Rout Have An Error: ', error);
+    for(let i = 0; i < numOfCpuCores; i++) {
+        cluster.fork();
     };
-});
 
-server.post('/registerData', async (req,res) => {
-    try {
-        const objData = req.body;
-        await insertData(pool, objData.usernameArg, objData.EmailArg, objData.PasswordArg);
-    } catch (error) {
-        console.error('/registerData Rout Have An Error: ', error);
-    };
-});
-
-server.post('/loginData', async (req,res) => {
-    try {
-        const dataForLogin = req.body;
-        const username = dataForLogin.loginUsernameArg;
-        const password = dataForLogin.loginPasswordArg;
-        const result = await checkLoginData(pool, username, password);
-        if(result === 'successfullyLogin') {
-            const token = jwt.sign({ username }, secret, { expiresIn: '30d' });
-            await insertToken(pool, username, password, token);
-            return res.json({ token: token, pageName: 'mainPage' });
-        } else if(result === 'wrongLogin') {
-            return res.json({ token: 'wrongLoginForToken', pageName: 'Login'});
-        };
-    } catch (error) {
-        console.error('/loginData Rout Have An Error: ', error);
-    };
-});
-
-server.use((req,res,next) => {
-    const error = new Error('Code Catch Error From Routs!');
-    error.status = 400;
-    next(error);
-});
-
-server.use((err, req, res, next) => {
-    console.error('Error: ', err.message);
-    res.status(err.status || 500).json({
-        success: false,
-        errorMessage: err.message
+    cluster.on('exit', (worker, code, signal) => {
+        console.log(`Worker ${process.pid} died. Creating A New One`);
+        cluster.fork();
     });
-});
-
-server.listen(port, '0.0.0.0', () => {
-    console.log(`Server Running on http://${ip}:${port}`);
-});
+} else {
+    pool.on('error', (err, client) => {
+        console.error('DataBase Have An Error: ', err);
+    });
+    
+    server.get('/', (req,res) => {
+        res.status(200).send('<h1>Server Code is working!</h1>');
+    });
+    
+    server.post('/isLogined', async (req,res) => {
+        try {
+            const { result } = req.body;
+            const resultOfTokenTime = await checkTokenTime(jwt, secret, result, pool);
+            if(resultOfTokenTime === 'notExictedTime') {
+                const resultOfFunc = await isUserLogined(pool, result);
+                if(resultOfFunc === 'DontExists') {
+                    return res.json({ state: 'UserDidntExists' });
+                } else if (resultOfFunc === 'Exists') {
+                    return res.json({ state: 'UserAlredyExists' });
+                };    
+            } else if(resultOfTokenTime === 'ExictedTime') {
+                return res.json({ state: 'UserDidntExists' });
+            } else if(resultOfTokenTime === 'InvalidToken') {
+                return res.json({ state: 'TokenIsInvalid'});
+            };
+        } catch (error) {
+            console.error('/isLogined Rout Have An Error: ', error);
+        };
+    });
+    
+    server.post('/registerData', async (req,res) => {
+        try {
+            const objData = req.body;
+            await insertData(pool, objData.usernameArg, objData.EmailArg, objData.PasswordArg);
+        } catch (error) {
+            console.error('/registerData Rout Have An Error: ', error);
+        };
+    });
+    
+    server.post('/loginData', async (req,res) => {
+        try {
+            const dataForLogin = req.body;
+            const username = dataForLogin.loginUsernameArg;
+            const password = dataForLogin.loginPasswordArg;
+            const result = await checkLoginData(pool, username, password);
+            if(result === 'successfullyLogin') {
+                const token = jwt.sign({ username }, secret, { expiresIn: '30d' });
+                await insertToken(pool, username, password, token);
+                return res.json({ token: token, pageName: 'mainPage' });
+            } else if(result === 'wrongLogin') {
+                return res.json({ token: 'wrongLoginForToken', pageName: 'Login'});
+            };
+        } catch (error) {
+            console.error('/loginData Rout Have An Error: ', error);
+        };
+    });
+    
+    server.use((req,res,next) => {
+        const error = new Error(`Code Catch Error From Rout ${req.originalUrl}!`);
+        error.status = 404;
+        next(error);
+    });
+    
+    server.use((err, req, res, next) => {
+        console.error('Error: ', err.message);
+        res.status(err.status || 500).json({
+            success: false,
+            errorMessage: err.message || 'Server Error'
+        });
+    });
+    
+    server.listen(port, '0.0.0.0', () => {
+        console.log(`Server Running on http://${ip}:${port}`);
+    });
+};
